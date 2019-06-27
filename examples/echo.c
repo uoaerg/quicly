@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <sys/select.h>
 #include <sys/socket.h>

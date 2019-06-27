@@ -3428,7 +3428,10 @@ static int handle_ack_frame(quicly_conn_t *conn, struct st_quicly_handle_payload
     LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_CC_ACK_RECEIVED, INT_EVENT_ATTR(PACKET_NUMBER, frame.largest_acknowledged),
                          INT_EVENT_ATTR(ACKED_PACKETS, segs_acked), INT_EVENT_ATTR(ACKED_BYTES, bytes_acked),
                          INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd),
-                         INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight));
+                         INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight),
+                         INT_EVENT_ATTR(SMOOTHED_RTT, conn->egress.loss.rtt.smoothed),
+                         INT_EVENT_ATTR(LATEST_RTT, conn->egress.loss.rtt.latest), 
+			 	INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd));
 
     /* loss-detection  */
     quicly_loss_detect_loss(&conn->egress.loss, frame.largest_acknowledged, do_detect_loss);
