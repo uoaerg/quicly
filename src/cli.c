@@ -286,6 +286,10 @@ static int server_on_receive(quicly_stream_t *stream, size_t off, const void *sr
         goto Sent;
     if (path_is(path, "/blob1m.txt") && send_file(stream, is_http1, "assets/blob1m.txt", "image/jpeg"))
         goto Sent;
+    if (path_is(path, "/blob10m.txt") && send_file(stream, is_http1, "assets/blob10m.txt", "image/jpeg"))
+        goto Sent;
+    if (path_is(path, "/blob100m.txt") && send_file(stream, is_http1, "assets/blob100m.txt", "image/jpeg"))
+        goto Sent;
 
     if (send_sized_text(stream, path, is_http1))
         goto Sent;
