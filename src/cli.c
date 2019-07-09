@@ -382,7 +382,7 @@ static int send_one(int fd, quicly_datagram_t *p)
 
 static int send_pending(int fd, quicly_conn_t *conn)
 {
-    quicly_datagram_t *packets[16];
+    quicly_datagram_t *packets[QUICLY_MAX_BURST];
     size_t num_packets, i;
     int ret;
 
@@ -492,8 +492,10 @@ static int run_client(struct sockaddr *sa, socklen_t salen, const char *host)
             FD_ZERO(&readfds);
             FD_SET(fd, &readfds);
         } while (select(fd + 1, &readfds, NULL, NULL, tv) == -1 && errno == EINTR);
+
         if (enqueue_requests_at <= ctx.now->cb(ctx.now))
             enqueue_requests(conn);
+
         if (FD_ISSET(fd, &readfds)) {
             uint8_t buf[4096];
             struct msghdr mess;
@@ -600,6 +602,7 @@ static int run_server(struct sockaddr *sa, socklen_t salen)
             FD_ZERO(&readfds);
             FD_SET(fd, &readfds);
         } while (select(fd + 1, &readfds, NULL, NULL, tv) == -1 && errno == EINTR);
+
         if (FD_ISSET(fd, &readfds)) {
             uint8_t buf[4096];
             struct msghdr mess;
@@ -613,16 +616,20 @@ static int run_server(struct sockaddr *sa, socklen_t salen)
             mess.msg_iov = &vec;
             mess.msg_iovlen = 1;
             ssize_t rret;
+
             while ((rret = recvmsg(fd, &mess, 0)) <= 0)
                 ;
+
             if (verbosity >= 2)
                 hexdump("recvmsg", buf, rret);
+
             size_t off = 0;
             while (off != rret) {
                 quicly_decoded_packet_t packet;
                 size_t plen = quicly_decode_packet(&ctx, &packet, buf + off, rret - off);
                 if (plen == SIZE_MAX)
                     break;
+
                 if (QUICLY_PACKET_IS_LONG_HEADER(packet.octets.base[0])) {
                     if (packet.version != QUICLY_PROTOCOL_VERSION) {
                         quicly_datagram_t *rp =
@@ -633,6 +640,7 @@ static int run_server(struct sockaddr *sa, socklen_t salen)
                         break;
                     }
                 }
+
                 quicly_conn_t *conn = NULL;
                 size_t i;
                 for (i = 0; i != num_conns; ++i) {
@@ -689,6 +697,8 @@ static int run_server(struct sockaddr *sa, socklen_t salen)
             }
         }
         {
+		// loop through connections
+		// send_pending for each
             size_t i;
             for (i = 0; i != num_conns; ++i) {
                 if (quicly_get_first_timeout(conns[i]) <= ctx.now->cb(ctx.now)) {

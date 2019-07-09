@@ -35,6 +35,7 @@
 #include "quicly/frame.h"
 #include "quicly/streambuf.h"
 #include "quicly/cc.h"
+#include "quicly/pacer.h"
 
 #define QUICLY_QUIC_BIT 0x40
 #define QUICLY_LONG_HEADER_RESERVED_BITS 0xc
@@ -253,6 +254,7 @@ struct st_quicly_conn_t {
          *
          */
         quicly_cc_t cc;
+        quicly_pacer_t pacer;
     } egress;
     /**
      * crypto data
@@ -352,6 +354,12 @@ static void set_cid(quicly_cid_t *dest, ptls_iovec_t src)
 {
     memcpy(dest->cid, src.base, src.len);
     dest->len = src.len;
+}
+
+/* Update the pacers rate based on new rtt and cwnd */
+static void quicly_pacer_update_rate(quicly_pacer_t *pacer, quicly_loss_t *loss, quicly_cc_t *cc)
+{
+    pacer->interval = (loss->rtt.smoothed / (cc->cwnd/QUICLY_MAX_PACKET_SIZE)) * QUICLY_MAX_BURST;	
 }
 
 static inline quicly_event_attribute_t _int_event_attr(quicly_event_attribute_type_t type, int64_t value)
@@ -2003,8 +2011,8 @@ int64_t quicly_get_first_timeout(quicly_conn_t *conn)
             return 0;
         if (quicly_linklist_is_linked(&conn->pending_link.control))
             return 0;
-        if (scheduler_can_send(conn))
-            return 0;
+        if (scheduler_can_send(conn))	// figure out where to do the calculation
+		return conn->egress.pacer.lastsend_at + conn->egress.pacer.interval;
     } else if (!conn->super.peer.address_validation.validated) {
         return conn->idle_timeout.at;
     }
@@ -2626,6 +2634,8 @@ static int do_detect_loss(quicly_loss_t *ld, uint64_t largest_acked, uint32_t de
         LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_CC_CONGESTION, INT_EVENT_ATTR(MAX_LOST_PN, conn->egress.max_lost_pn),
                              INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight),
                              INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd));
+       /* only update the pacer calclations if the cc is also responding */                                                    
+       quicly_pacer_update_rate(&conn->egress.pacer, &conn->egress.loss, &conn->egress.cc);
     }
 
     /* schedule time-threshold alarm if there is a packet outstanding that is smaller than largest_acked */
@@ -3131,8 +3141,11 @@ int quicly_send(quicly_conn_t *conn, quicly_datagram_t **packets, size_t *num_pa
     }
 
     /* emit packets */
-    if ((ret = do_send(conn, &s)) != 0)
+    if ((ret = do_send(conn, &s)) != 0) {
+    	// I assume this is the success path, its hard to tell in this thing
+	conn->egress.pacer.lastsend_at = now;
         return ret;
+    }
     /* We might see the timer going back to the past, if time-threshold loss timer fires first without being able to make any
      * progress (i.e. due to the payload of lost packet being cancelled), then PTO for the previously sent packet.  To accomodate
      * that, we allow to rerun the do_send function just once.
@@ -3436,6 +3449,9 @@ static int handle_ack_frame(quicly_conn_t *conn, struct st_quicly_handle_payload
     /* loss-detection  */
     quicly_loss_detect_loss(&conn->egress.loss, frame.largest_acknowledged, do_detect_loss);
     update_loss_alarm(conn);
+
+    /* pacer */
+    quicly_pacer_update_rate(&conn->egress.pacer, &conn->egress.loss, &conn->egress.cc);
 
     return 0;
 }
