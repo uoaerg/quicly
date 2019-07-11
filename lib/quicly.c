@@ -4446,7 +4446,7 @@ const char *quicly_event_attribute_names[] = {NULL,
                                               "ack-block-begin",
                                               "ack-block-end",
                                               "ack-delay",
+					      "pacer-interval",
                                               "dcid",
                                               "scid",
-                                              "reason-phrase",
-					      "pacer-interval"};
+                                              "reason-phrase"};
