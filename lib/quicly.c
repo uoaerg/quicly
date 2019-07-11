@@ -1534,6 +1534,10 @@ static quicly_conn_t *create_connection(quicly_context_t *ctx, const char *serve
     conn->_.egress.path_challenge.tail_ref = &conn->_.egress.path_challenge.head;
     conn->_.egress.send_ack_at = INT64_MAX;
     quicly_cc_init(&conn->_.egress.cc);
+
+    /* update pacer rate with inital rtt and cwnd */                                                    
+    quicly_pacer_update_rate(&conn->_.egress.pacer, &conn->_.egress.loss, &conn->_.egress.cc);
+
     conn->_.crypto.tls = tls;
     if (handshake_properties != NULL) {
         assert(handshake_properties->additional_extensions == NULL);
@@ -2011,8 +2015,13 @@ int64_t quicly_get_first_timeout(quicly_conn_t *conn)
             return 0;
         if (quicly_linklist_is_linked(&conn->pending_link.control))
             return 0;
-        if (scheduler_can_send(conn))	// figure out where to do the calculation
+	/* 
+	 * If we can send limit this by the pacing interval
+	 */
+        if (scheduler_can_send(conn)) {
+		printf("now %ld, last send %ld, interval %ld\n", now, conn->egress.pacer.lastsend_at,  conn->egress.pacer.interval);
 		return conn->egress.pacer.lastsend_at + conn->egress.pacer.interval;
+	}
     } else if (!conn->super.peer.address_validation.validated) {
         return conn->idle_timeout.at;
     }
@@ -3443,20 +3452,21 @@ static int handle_ack_frame(quicly_conn_t *conn, struct st_quicly_handle_payload
                              INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight));
     }
 
+    /* both the rtt and cwnd might have been updated - update the rate */
+    quicly_pacer_update_rate(&conn->egress.pacer, &conn->egress.loss, &conn->egress.cc);
+
     LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_CC_ACK_RECEIVED, INT_EVENT_ATTR(PACKET_NUMBER, frame.largest_acknowledged),
                          INT_EVENT_ATTR(ACKED_PACKETS, segs_acked), INT_EVENT_ATTR(ACKED_BYTES, bytes_acked),
                          INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd),
                          INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight),
                          INT_EVENT_ATTR(SMOOTHED_RTT, conn->egress.loss.rtt.smoothed),
                          INT_EVENT_ATTR(LATEST_RTT, conn->egress.loss.rtt.latest), 
-			 	INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd));
+			 	INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd),
+			 	INT_EVENT_ATTR(PACER_INTERVAL, conn->egress.pacer.interval));
 
     /* loss-detection  */
     quicly_loss_detect_loss(&conn->egress.loss, frame.largest_acknowledged, do_detect_loss);
     update_loss_alarm(conn);
-
-    /* pacer */
-    quicly_pacer_update_rate(&conn->egress.pacer, &conn->egress.loss, &conn->egress.cc);
 
     return 0;
 }
