@@ -2138,6 +2138,8 @@ static int commit_send_packet(quicly_conn_t *conn, quicly_send_context_t *s, int
     ++conn->egress.packet_number;
     ++conn->super.stats.num_packets.sent;
 
+    conn->egress.pacer.lastsend_at = now;
+
     if (!coalesced) {
         conn->super.stats.num_bytes.sent += s->target.packet->data.len;
         s->packets[s->num_packets++] = s->target.packet;
@@ -3156,8 +3158,6 @@ int quicly_send(quicly_conn_t *conn, quicly_datagram_t **packets, size_t *num_pa
 
     /* emit packets */
     if ((ret = do_send(conn, &s)) != 0) {
-    	// I assume this is the success path, its hard to tell in this thing
-	conn->egress.pacer.lastsend_at = now;
         return ret;
     }
     /* We might see the timer going back to the past, if time-threshold loss timer fires first without being able to make any
