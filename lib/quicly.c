@@ -360,6 +360,8 @@ static void set_cid(quicly_cid_t *dest, ptls_iovec_t src)
 static void quicly_pacer_update_rate(quicly_pacer_t *pacer, quicly_loss_t *loss, quicly_cc_t *cc)
 {
     pacer->interval = (loss->rtt.smoothed / (cc->cwnd/QUICLY_MAX_PACKET_SIZE)) * QUICLY_MAX_BURST;	
+    if ( pacer->interval < 1)
+    	pacer->interval = 1;
 }
 
 static inline quicly_event_attribute_t _int_event_attr(quicly_event_attribute_type_t type, int64_t value)
