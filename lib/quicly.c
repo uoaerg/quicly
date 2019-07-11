@@ -2627,15 +2627,18 @@ static int do_detect_loss(quicly_loss_t *ld, uint64_t largest_acked, uint32_t de
     }
     if (largest_newly_lost_pn != UINT64_MAX) {
         conn->egress.max_lost_pn = largest_newly_lost_pn + 1;
+
+       /* only update the pacer calclations if the cc is also responding */                                                    
+       quicly_pacer_update_rate(&conn->egress.pacer, &conn->egress.loss, &conn->egress.cc);
+
         LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_QUICTRACE_CC_LOST, INT_EVENT_ATTR(MIN_RTT, conn->egress.loss.rtt.minimum),
                              INT_EVENT_ATTR(SMOOTHED_RTT, conn->egress.loss.rtt.smoothed),
                              INT_EVENT_ATTR(LATEST_RTT, conn->egress.loss.rtt.latest), INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd),
-                             INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight));
+                             INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight),
+                             INT_EVENT_ATTR(PACER_INTERVAL, conn->egress.pacer.interval));
         LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_CC_CONGESTION, INT_EVENT_ATTR(MAX_LOST_PN, conn->egress.max_lost_pn),
                              INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight),
                              INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd));
-       /* only update the pacer calclations if the cc is also responding */                                                    
-       quicly_pacer_update_rate(&conn->egress.pacer, &conn->egress.loss, &conn->egress.cc);
     }
 
     /* schedule time-threshold alarm if there is a packet outstanding that is smaller than largest_acked */
@@ -4443,4 +4446,5 @@ const char *quicly_event_attribute_names[] = {NULL,
                                               "ack-delay",
                                               "dcid",
                                               "scid",
-                                              "reason-phrase"};
+                                              "reason-phrase",
+					      "pacer-interval"};
