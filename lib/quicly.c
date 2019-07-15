@@ -2621,6 +2621,7 @@ static int do_detect_loss(quicly_loss_t *ld, uint64_t largest_acked, uint32_t de
         conn->egress.max_lost_pn = largest_newly_lost_pn + 1;
         LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_QUICTRACE_CC_LOST, INT_EVENT_ATTR(MIN_RTT, conn->egress.loss.rtt.minimum),
                              INT_EVENT_ATTR(SMOOTHED_RTT, conn->egress.loss.rtt.smoothed),
+                             INT_EVENT_ATTR(RTT_VARIANCE, conn->egress.loss.rtt.variance),
                              INT_EVENT_ATTR(LATEST_RTT, conn->egress.loss.rtt.latest), INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd),
                              INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight));
         LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_CC_CONGESTION, INT_EVENT_ATTR(MAX_LOST_PN, conn->egress.max_lost_pn),
@@ -3421,6 +3422,7 @@ static int handle_ack_frame(quicly_conn_t *conn, struct st_quicly_handle_payload
                            (uint32_t)(conn->egress.sentmap.bytes_in_flight + bytes_acked));
         LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_QUICTRACE_CC_ACK, INT_EVENT_ATTR(MIN_RTT, conn->egress.loss.rtt.minimum),
                              INT_EVENT_ATTR(SMOOTHED_RTT, conn->egress.loss.rtt.smoothed),
+			     INT_EVENT_ATTR(RTT_VARIANCE, conn->egress.loss.rtt.variance),
                              INT_EVENT_ATTR(LATEST_RTT, conn->egress.loss.rtt.latest), INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd),
                              INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight));
     }
@@ -3430,6 +3432,7 @@ static int handle_ack_frame(quicly_conn_t *conn, struct st_quicly_handle_payload
                          INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd),
                          INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight),
                          INT_EVENT_ATTR(SMOOTHED_RTT, conn->egress.loss.rtt.smoothed),
+			 INT_EVENT_ATTR(RTT_VARIANCE, conn->egress.loss.rtt.variance),
                          INT_EVENT_ATTR(LATEST_RTT, conn->egress.loss.rtt.latest), 
 			 	INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd));
 
@@ -4418,6 +4421,7 @@ const char *quicly_event_attribute_names[] = {NULL,
                                               "acked-bytes",
                                               "min-rtt",
                                               "smoothed-rtt",
+					      "rtt-variance",
                                               "latest-rtt",
                                               "state",
                                               "error-code",
