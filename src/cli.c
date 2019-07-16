@@ -35,7 +35,7 @@
 #include "../deps/picotls/t/util.h"
 
 static unsigned verbosity = 0;
-static int64_t enqueue_requests_at = 0, request_interval = 0;
+static int64_t enqueue_requests_at = 0, request_interval = 0, request_count = 1;
 
 static void hexdump(const char *title, const uint8_t *p, size_t l)
 {
@@ -70,7 +70,8 @@ static ptls_context_t tlsctx = {.random_bytes = ptls_openssl_random_bytes,
                                 .cipher_suites = ptls_openssl_cipher_suites,
                                 .require_dhe_on_psk = 1,
                                 .save_ticket = &save_ticket};
-static const char *req_paths[1024];
+#define MAX_REQUEST_PATHS 1024
+static const char *req_paths[MAX_REQUEST_PATHS];
 
 static int on_stop_sending(quicly_stream_t *stream, int err);
 static int on_receive_reset(quicly_stream_t *stream, int err);
@@ -322,10 +323,20 @@ static int client_on_receive(quicly_stream_t *stream, size_t off, const void *sr
     if (quicly_recvstate_transfer_complete(&stream->recvstate)) {
         static size_t num_resp_received;
         ++num_resp_received;
+
+/* don't over flow number of requests
+	if ( ++num_resp_receied > MAX_REQUEST_PATHS) {
+                dump_stats(stderr, stream->conn);
+                quicly_close(stream->conn, 0, "");
+        }
+*/
+
         if (req_paths[num_resp_received] == NULL) {
-            if (request_interval != 0) {
+            if (num_resp_received < request_count && request_interval != 0 ) {
                 enqueue_requests_at = ctx.now->cb(ctx.now) + request_interval;
             } else {
+	    	if (num_resp_received > 1)
+			printf("\n %zu transfers complete, \n", num_resp_received);
                 dump_stats(stderr, stream->conn);
                 quicly_close(stream->conn, 0, "");
             }
@@ -392,6 +403,7 @@ static int send_pending(int fd, quicly_conn_t *conn)
 
     do {
         num_packets = sizeof(packets) / sizeof(packets[0]);
+	//printf("num_packets %zu, sizeof packets %ld, sizeof packets 0 %ld\n", num_packets, sizeof(packets), sizeof(packets[0]));
         if ((ret = quicly_send(conn, packets, &num_packets)) == 0) {
             for (i = 0; i != num_packets; ++i) {
                 if ((ret = send_one(fd, packets[i])) == -1)
@@ -795,6 +807,7 @@ static void usage(const char *cmd)
            "\n"
            "Options:\n"
            "  -a <alpn list>            a coma separated list of ALPN identifiers\n"
+           "  -b number			number of back to back requests to make when using an interval\n"
            "  -C <cid-key>              CID encryption key (server-only). Randomly generated\n"
            "                            if omitted.\n"
            "  -c certificate-file\n"
@@ -837,7 +850,7 @@ int main(int argc, char **argv)
     setup_session_cache(ctx.tls);
     quicly_amend_ptls_context(ctx.tls);
 
-    while ((ch = getopt(argc, argv, "a:C:c:k:e:i:I:l:M:m:Nnp:Rr:S:s:Vvx:X:h")) != -1) {
+    while ((ch = getopt(argc, argv, "a:b:C:c:k:e:i:I:l:M:m:Nnp:Rr:S:s:Vvx:X:h")) != -1) {
         switch (ch) {
         case 'a':
             set_alpn(&hs_properties, optarg);
@@ -866,6 +879,31 @@ int main(int argc, char **argv)
                 fprintf(stderr, "failed to parse request interval: %s\n", optarg);
                 exit(1);
             }
+
+	    if (request_count < 2) {
+                fprintf(stderr, "request count must be greater than 1: %ld, raising to 2\n", request_count);
+		request_count = 2;
+	    }
+
+            break;
+        case 'b': 	/* back to back requests */
+            if (sscanf(optarg, "%" SCNd64, &request_count) != 1) {
+                fprintf(stderr, "failed to parse request count: %s\n", optarg);
+                exit(1);
+            }
+	    if (request_count <= 0) {
+                fprintf(stderr, "request count must be greater than 0: %ld\n", request_count);
+                exit(1);
+            }
+	    if (request_count > 1023) {
+                fprintf(stderr, "request count cannot be greater than 1023: %ld, limiting to 1023\n", request_count);
+		request_count = 1023;
+            }
+
+	    if (request_interval != 0 && request_count < 2) {
+                fprintf(stderr, "request count must be greater than 1: %ld, raising to 2\n", request_count);
+		request_count = 2;
+	    }
             break;
         case 'I':
             if (sscanf(optarg, "%" SCNd64, &ctx.transport_params.idle_timeout) != 1) {
