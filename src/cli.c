@@ -822,6 +822,8 @@ static void usage(const char *cmd)
            "  -N                        enforce HelloRetryRequest (client-only)\n"
            "  -n                        enforce version negotiation (client-only)\n"
            "  -P 			pace packets\n"
+	   "				this doesn't work well right now, it requires\n"
+	   "				max burst size control first\n"
            "  -p path                   path to request (can be set multiple times)\n"
            "  -R                        require Retry (server only)\n"
            "  -r [initial-pto]          initial PTO (in milliseconds)\n"
