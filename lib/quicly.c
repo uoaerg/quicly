@@ -3467,8 +3467,7 @@ static int handle_ack_frame(quicly_conn_t *conn, struct st_quicly_handle_payload
                          INT_EVENT_ATTR(SMOOTHED_RTT, conn->egress.loss.rtt.smoothed),
                          INT_EVENT_ATTR(RTT_VARIANCE, conn->egress.loss.rtt.variance),
                          INT_EVENT_ATTR(LATEST_RTT, conn->egress.loss.rtt.latest), 
-			 	INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd),
-			 	INT_EVENT_ATTR(PACER_INTERVAL, conn->egress.pacer.interval));
+			 INT_EVENT_ATTR(PACER_INTERVAL, conn->egress.pacer.interval));
 
     /* loss-detection  */
     quicly_loss_detect_loss(&conn->egress.loss, frame.largest_acknowledged, do_detect_loss);
