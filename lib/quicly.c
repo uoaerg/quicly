@@ -2017,13 +2017,12 @@ int64_t quicly_get_first_timeout(quicly_conn_t *conn)
             return 0;
         if (quicly_linklist_is_linked(&conn->pending_link.control))
             return 0;
-	/* 
-	 * If we can send limit this by the pacing interval
-	 */
         if (scheduler_can_send(conn)) {
 		if (conn->super.ctx->pace_packets) {
+#if 0
 			printf("now %ld, last send %ld, interval %ld blocked %d cwnd %d srtt %d\n", now, conn->egress.pacer.lastsend_at,  conn->egress.pacer.interval, 
 				((conn->egress.pacer.lastsend_at + conn->egress.pacer.interval) > now) ? 1: 0, conn->egress.cc.cwnd, conn->egress.loss.rtt.smoothed);
+#endif
 			return conn->egress.pacer.lastsend_at + conn->egress.pacer.interval;
 		} else {
 			return 0;
