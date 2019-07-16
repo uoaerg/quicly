@@ -397,6 +397,10 @@ struct st_quicly_context_t {
      */
     quicly_now_t *now;
     /**
+     * pace packets
+     */
+    unsigned int pace_packets;
+    /**
      * optional callback for debug logging
      */
     struct {

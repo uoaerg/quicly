@@ -42,6 +42,7 @@ const quicly_context_t quicly_spec_context = {
     &quicly_default_stream_scheduler,
     NULL, /* on_conn_close */
     &quicly_default_now,
+    0, /* pace packets */
     {0, NULL}, /* event_log */
 };
 
@@ -65,6 +66,7 @@ const quicly_context_t quicly_performant_context = {
     &quicly_default_stream_scheduler,
     NULL, /* on_conn_close */
     &quicly_default_now,
+    0, /* pace packets */
     {0, NULL}, /* event_log */
 };
 

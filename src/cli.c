@@ -821,6 +821,7 @@ static void usage(const char *cmd)
            "  -m <bytes>                max data (in bytes; default: 16MB)\n"
            "  -N                        enforce HelloRetryRequest (client-only)\n"
            "  -n                        enforce version negotiation (client-only)\n"
+           "  -P 			pace packets\n"
            "  -p path                   path to request (can be set multiple times)\n"
            "  -R                        require Retry (server only)\n"
            "  -r [initial-pto]          initial PTO (in milliseconds)\n"
@@ -850,7 +851,7 @@ int main(int argc, char **argv)
     setup_session_cache(ctx.tls);
     quicly_amend_ptls_context(ctx.tls);
 
-    while ((ch = getopt(argc, argv, "a:b:C:c:k:e:i:I:l:M:m:Nnp:Rr:S:s:Vvx:X:h")) != -1) {
+    while ((ch = getopt(argc, argv, "a:b:C:c:k:e:i:I:l:M:m:NnPp:Rr:S:s:Vvx:X:h")) != -1) {
         switch (ch) {
         case 'a':
             set_alpn(&hs_properties, optarg);
@@ -934,6 +935,9 @@ int main(int argc, char **argv)
             break;
         case 'n':
             ctx.enforce_version_negotiation = 1;
+            break;
+        case 'P':
+            ctx.pace_packets = 1;
             break;
         case 'p': {
             size_t i;
