@@ -2655,7 +2655,6 @@ static int do_detect_loss(quicly_loss_t *ld, uint64_t largest_acked, uint32_t de
                              INT_EVENT_ATTR(LATEST_RTT, conn->egress.loss.rtt.latest), INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd),
                              INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight),
                              INT_EVENT_ATTR(PACER_INTERVAL, conn->egress.pacer.interval));
-	printf("pacer interval recalculated %ld\n", conn->egress.pacer.interval);
         LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_CC_CONGESTION, INT_EVENT_ATTR(MAX_LOST_PN, conn->egress.max_lost_pn),
                              INT_EVENT_ATTR(BYTES_IN_FLIGHT, conn->egress.sentmap.bytes_in_flight),
                              INT_EVENT_ATTR(CWND, conn->egress.cc.cwnd));
