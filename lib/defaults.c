@@ -43,6 +43,7 @@ const quicly_context_t quicly_spec_context = {
     NULL, /* on_conn_close */
     &quicly_default_now,
     0, /* pace packets */
+    QUICLY_DEFAULT_MAX_BURST, /* max burst size*/
     {0, NULL}, /* event_log */
 };
 
@@ -67,6 +68,7 @@ const quicly_context_t quicly_performant_context = {
     NULL, /* on_conn_close */
     &quicly_default_now,
     0, /* pace packets */
+    QUICLY_DEFAULT_MAX_BURST, /* max burst size*/
     {0, NULL}, /* event_log */
 };
 

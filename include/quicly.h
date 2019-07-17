@@ -399,7 +399,11 @@ struct st_quicly_context_t {
     /**
      * pace packets
      */
-    unsigned int pace_packets;
+    uint8_t pace_packets;
+    /**
+     * max burst size
+     */
+    uint16_t max_burst;
     /**
      * optional callback for debug logging
      */

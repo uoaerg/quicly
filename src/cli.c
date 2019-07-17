@@ -397,13 +397,19 @@ static int send_one(int fd, quicly_datagram_t *p)
 
 static int send_pending(int fd, quicly_conn_t *conn)
 {
-    quicly_datagram_t *packets[QUICLY_MAX_BURST];
+    quicly_datagram_t **packets;
     size_t num_packets, i;
     int ret;
+    uint16_t burstsize;
+
+    burstsize = quicly_get_context(conn)->max_burst;
+    packets = calloc(burstsize, sizeof(quicly_datagram_t *));
+
+    if (packets == NULL)	/* not sure what to actually do here */
+    	return 0;
 
     do {
-        num_packets = sizeof(packets) / sizeof(packets[0]);
-	//printf("num_packets %zu, sizeof packets %ld, sizeof packets 0 %ld\n", num_packets, sizeof(packets), sizeof(packets[0]));
+        num_packets = burstsize;
         if ((ret = quicly_send(conn, packets, &num_packets)) == 0) {
             for (i = 0; i != num_packets; ++i) {
                 if ((ret = send_one(fd, packets[i])) == -1)
@@ -413,7 +419,7 @@ static int send_pending(int fd, quicly_conn_t *conn)
                 pa->free_packet(pa, packets[i]);
             }
         }
-    } while (ret == 0 && num_packets == sizeof(packets) / sizeof(packets[0]));
+    } while (ret == 0 && num_packets == burstsize);
 
     return ret;
 }
@@ -807,7 +813,8 @@ static void usage(const char *cmd)
            "\n"
            "Options:\n"
            "  -a <alpn list>            a coma separated list of ALPN identifiers\n"
-           "  -b number			number of back to back requests to make when using an interval\n"
+	   "  -B burstsize              max burstsize to send\n"
+           "  -b number	                number of back to back requests to make when using an interval\n"
            "  -C <cid-key>              CID encryption key (server-only). Randomly generated\n"
            "                            if omitted.\n"
            "  -c certificate-file\n"
@@ -844,6 +851,7 @@ int main(int argc, char **argv)
     struct sockaddr_storage sa;
     socklen_t salen;
     int ch;
+    uint16_t burst = 16;
 
     ctx = quicly_spec_context;
     ctx.tls = &tlsctx;
@@ -857,6 +865,36 @@ int main(int argc, char **argv)
         switch (ch) {
         case 'a':
             set_alpn(&hs_properties, optarg);
+            break;
+        case 'B': 	/* burst size */
+            if (sscanf(optarg, "%" SCNd16, &burst) != 1) {
+                fprintf(stderr, "failed to parse request count: %s\n", optarg);
+                exit(1);
+            }
+	    if (burst <= 0) {
+                fprintf(stderr, "max burst must be greater than 0: %hu\n", burst);
+                exit(1);
+            }
+	    ctx.max_burst = burst;
+            break;
+        case 'b': 	/* back to back requests */
+            if (sscanf(optarg, "%" SCNd64, &request_count) != 1) {
+                fprintf(stderr, "failed to parse request count: %s\n", optarg);
+                exit(1);
+            }
+	    if (request_count <= 0) {
+                fprintf(stderr, "request count must be greater than 0: %ld\n", request_count);
+                exit(1);
+            }
+	    if (request_count > 1023) {
+                fprintf(stderr, "request count cannot be greater than 1023: %ld, limiting to 1023\n", request_count);
+		request_count = 1023;
+            }
+
+	    if (request_interval != 0 && request_count < 2) {
+                fprintf(stderr, "request count must be greater than 1: %ld, raising to 2\n", request_count);
+		request_count = 2;
+	    }
             break;
         case 'C':
             cid_key = optarg;
@@ -888,25 +926,6 @@ int main(int argc, char **argv)
 		request_count = 2;
 	    }
 
-            break;
-        case 'b': 	/* back to back requests */
-            if (sscanf(optarg, "%" SCNd64, &request_count) != 1) {
-                fprintf(stderr, "failed to parse request count: %s\n", optarg);
-                exit(1);
-            }
-	    if (request_count <= 0) {
-                fprintf(stderr, "request count must be greater than 0: %ld\n", request_count);
-                exit(1);
-            }
-	    if (request_count > 1023) {
-                fprintf(stderr, "request count cannot be greater than 1023: %ld, limiting to 1023\n", request_count);
-		request_count = 1023;
-            }
-
-	    if (request_interval != 0 && request_count < 2) {
-                fprintf(stderr, "request count must be greater than 1: %ld, raising to 2\n", request_count);
-		request_count = 2;
-	    }
             break;
         case 'I':
             if (sscanf(optarg, "%" SCNd64, &ctx.transport_params.idle_timeout) != 1) {
