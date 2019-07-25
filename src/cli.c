@@ -418,6 +418,7 @@ static int send_pending(int fd, quicly_conn_t *conn)
                 quicly_packet_allocator_t *pa = quicly_get_context(conn)->packet_allocator;
                 pa->free_packet(pa, packets[i]);
             }
+	    fprintf(stderr, "sent %zu packets of burst %d\n", i, burstsize);
         }
     } while (ret == 0 && num_packets == burstsize);
 
@@ -861,7 +862,7 @@ int main(int argc, char **argv)
     setup_session_cache(ctx.tls);
     quicly_amend_ptls_context(ctx.tls);
 
-    while ((ch = getopt(argc, argv, "a:b:C:c:k:e:i:I:l:M:m:NnPp:Rr:S:s:Vvx:X:h")) != -1) {
+    while ((ch = getopt(argc, argv, "a:b:B:C:c:k:e:i:I:l:M:m:NnPp:Rr:S:s:Vvx:X:h")) != -1) {
         switch (ch) {
         case 'a':
             set_alpn(&hs_properties, optarg);

@@ -178,6 +178,7 @@ inline void quicly_rtt_update(quicly_rtt_t *rtt, uint32_t latest_rtt, uint32_t a
         rtt->variance = (rtt->variance * 3 + absdiff) / 4;
         rtt->smoothed = (rtt->smoothed * 7 + rtt->latest) / 8;
     }
+    //fprintf(stderr, "quicly_rtt_update latest_rtt %d ack_delay %d; rtt-> smoothed %d variance %d latest %d\n", latest_rtt, ack_delay, rtt->smoothed, rtt->variance, rtt->latest);
     assert(rtt->smoothed != 0);
 }
 
@@ -270,7 +271,7 @@ inline void quicly_loss_on_ack_received(quicly_loss_t *r, uint64_t largest_newly
     /* If ack does not acknowledge any ack-eliciting packet, skip RTT sample */
     if (!ack_eliciting)
         return;
-
+   
     /* Decode ack delay */
     uint64_t ack_delay_microsecs = ack_delay_encoded << *r->ack_delay_exponent;
     uint32_t ack_delay_millisecs = (uint32_t)((ack_delay_microsecs * 2 + 1000) / 2000);
