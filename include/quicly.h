@@ -48,9 +48,9 @@ extern "C" {
 #define QUICLY_LONG_HEADER_BIT 0x80
 #define QUICLY_PACKET_IS_LONG_HEADER(first_byte) (((first_byte)&QUICLY_LONG_HEADER_BIT) != 0)
 
-#define QUICLY_PROTOCOL_VERSION 0xff000014
+#define QUICLY_PROTOCOL_VERSION 0xff000016
 
-#define QUICLY_MAX_CID_LEN 18
+#define QUICLY_MAX_CID_LEN_V1 20
 #define QUICLY_STATELESS_RESET_TOKEN_LEN 16
 #define QUICLY_STATELESS_RESET_PACKET_MIN_LEN 39
 
@@ -313,7 +313,7 @@ typedef struct st_quicly_transport_parameters_t {
 } quicly_transport_parameters_t;
 
 struct st_quicly_cid_t {
-    uint8_t cid[QUICLY_MAX_CID_LEN];
+    uint8_t cid[QUICLY_MAX_CID_LEN_V1];
     uint8_t len;
 };
 
@@ -518,7 +518,10 @@ struct _st_quicly_conn_public_t {
         /**
          * stateless reset token corresponding to the CID
          */
-        uint8_t stateless_reset_token[QUICLY_STATELESS_RESET_TOKEN_LEN];
+        struct {
+            uint8_t *token;
+            uint8_t _buf[QUICLY_STATELESS_RESET_TOKEN_LEN];
+        } stateless_reset;
         struct st_quicly_conn_streamgroup_state_t bidi, uni;
         struct sockaddr *sa;
         socklen_t salen;
@@ -940,6 +943,32 @@ static void quicly_byte_to_hex(char *dst, uint8_t v);
  *
  */
 char *quicly_hexdump(const uint8_t *bytes, size_t len, size_t indent);
+/**
+ *
+ */
+void quicly_stream_noop_on_destroy(quicly_stream_t *stream, int err);
+/**
+ *
+ */
+void quicly_stream_noop_on_send_shift(quicly_stream_t *stream, size_t delta);
+/**
+ *
+ */
+int quicly_stream_noop_on_send_emit(quicly_stream_t *stream, size_t off, void *dst, size_t *len, int *wrote_all);
+/**
+ *
+ */
+int quicly_stream_noop_on_send_stop(quicly_stream_t *stream, int err);
+/**
+ *
+ */
+int quicly_stream_noop_on_receive(quicly_stream_t *stream, size_t off, const void *src, size_t len);
+/**
+ *
+ */
+int quicly_stream_noop_on_receive_reset(quicly_stream_t *stream, int err);
+
+extern const quicly_stream_callbacks_t quicly_stream_noop_callbacks;
 
 /* inline definitions */
 
