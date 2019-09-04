@@ -357,11 +357,58 @@ static void set_cid(quicly_cid_t *dest, ptls_iovec_t src)
 }
 
 /* Update the pacers rate based on new rtt and cwnd */
-static void quicly_pacer_update_rate(quicly_pacer_t *pacer, quicly_loss_t *loss, quicly_cc_t *cc)
+static void quicly_pacer_update(quicly_pacer_t *pacer, quicly_loss_t *loss, quicly_cc_t *cc)
 {
+#if 0
     pacer->interval = (loss->rtt.smoothed / (cc->cwnd/QUICLY_MAX_PACKET_SIZE)) * QUICLY_MAX_BURST;	
     if ( pacer->interval < 1)
     	pacer->interval = 1;
+#endif
+
+#if 1
+fprintf(stderr, "%s %d\n", __func__, __LINE__);
+    int mss = QUICLY_MAX_PACKET_SIZE;
+    int interval = QUICLY_MIN_QUANTUM;
+fprintf(stderr, "%s %d\n", __func__, __LINE__);
+    int cwndb = cc->cwnd;
+fprintf(stderr, "%s %d %d %d\n", __func__, __LINE__, cwndb, mss);
+    int cwndp = cwndb / mss;
+fprintf(stderr, "%s %d %d %d\n", __func__, __LINE__, loss->rtt.smoothed, QUICLY_MIN_QUANTUM);
+    int rtt = loss->rtt.smoothed != 0 ? loss->rtt.smoothed : loss->rtt.latest;
+fprintf(stderr, "%s %d\n", __func__, __LINE__);
+    int slots = rtt / QUICLY_MIN_QUANTUM;
+fprintf(stderr, "%s %d\n", __func__, __LINE__);
+    double space = cwndp / slots;
+fprintf(stderr, "%s %d\n", __func__, __LINE__);
+
+    if (space == 1) {
+   	pacer->burst_size = 1; 
+    } else if (space < 1) {
+   	pacer->burst_size = 1; 
+	interval = QUICLY_MIN_QUANTUM / space;
+
+    } else {	//space > 1
+   	pacer->burst_size = (int)space + 0.6; 
+    }
+
+    if (pacer->burst_size > pacer->max_burst)
+   	pacer->burst_size = pacer->max_burst;
+
+    if (pacer->interval < QUICLY_MIN_QUANTUM)
+    	pacer->interval = QUICLY_MIN_QUANTUM;
+#endif
+}
+
+/* Initialize the pacer */
+static void quicly_pacer_init(uint16_t max_burst, quicly_pacer_t *pacer, quicly_loss_t *loss, quicly_cc_t *cc)
+{
+    pacer->lastsend_at = 0;
+    pacer->interval = QUICLY_MIN_QUANTUM;
+    pacer->burst_size = 1;
+    pacer->max_burst  = max_burst;
+printf("%s %d\n", __func__, __LINE__);
+
+    quicly_pacer_update(pacer, loss, cc);
 }
 
 static inline quicly_event_attribute_t _int_event_attr(quicly_event_attribute_type_t type, int64_t value)
@@ -1538,7 +1585,8 @@ static quicly_conn_t *create_connection(quicly_context_t *ctx, const char *serve
     quicly_cc_init(&conn->_.egress.cc);
 
     /* update pacer rate with inital rtt and cwnd */                                                    
-    quicly_pacer_update_rate(&conn->_.egress.pacer, &conn->_.egress.loss, &conn->_.egress.cc);
+    quicly_pacer_init(conn->_.super.ctx->max_burst, 
+    	&conn->_.egress.pacer, &conn->_.egress.loss, &conn->_.egress.cc);
 
     conn->_.crypto.tls = tls;
     if (handshake_properties != NULL) {
@@ -2039,6 +2087,11 @@ int64_t quicly_get_first_timeout(quicly_conn_t *conn)
         at = conn->idle_timeout.at;
 
     return at;
+}
+
+int16_t quicly_get_burst_size(quicly_conn_t *conn)
+{
+    return conn->egress.pacer.burst_size > 2 ? conn->egress.pacer.burst_size: 2;
 }
 
 /* data structure that is used during one call through quicly_send()
@@ -2647,7 +2700,7 @@ static int do_detect_loss(quicly_loss_t *ld, uint64_t largest_acked, uint32_t de
 
 	// this is probably in the wrong place
        /* only update the pacer calclations if the cc is also responding */                                                    
-       quicly_pacer_update_rate(&conn->egress.pacer, &conn->egress.loss, &conn->egress.cc);
+       quicly_pacer_update(&conn->egress.pacer, &conn->egress.loss, &conn->egress.cc);
 
         LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_QUICTRACE_CC_LOST, INT_EVENT_ATTR(MIN_RTT, conn->egress.loss.rtt.minimum),
                              INT_EVENT_ATTR(SMOOTHED_RTT, conn->egress.loss.rtt.smoothed),
@@ -3009,6 +3062,7 @@ static int do_send(quicly_conn_t *conn, quicly_send_context_t *s)
                                         &restrict_sending)) != 0)
             goto Exit;
         assert(min_packets_to_send > 0);
+fprintf(stderr, "%zu  %zu\n", min_packets_to_send, s->max_packets);
         assert(min_packets_to_send <= s->max_packets);
 
         if (restrict_sending) {
@@ -3460,7 +3514,7 @@ static int handle_ack_frame(quicly_conn_t *conn, struct st_quicly_handle_payload
     }
 
     /* both the rtt and cwnd might have been updated - update the rate */
-    quicly_pacer_update_rate(&conn->egress.pacer, &conn->egress.loss, &conn->egress.cc);
+    quicly_pacer_update(&conn->egress.pacer, &conn->egress.loss, &conn->egress.cc);
 
     LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_CC_ACK_RECEIVED, INT_EVENT_ATTR(PACKET_NUMBER, frame.largest_acknowledged),
                          INT_EVENT_ATTR(ACKED_PACKETS, segs_acked), INT_EVENT_ATTR(ACKED_BYTES, bytes_acked),

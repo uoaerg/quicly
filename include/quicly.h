@@ -810,6 +810,7 @@ int quicly_close(quicly_conn_t *conn, int err, const char *reason_phrase);
  *
  */
 int64_t quicly_get_first_timeout(quicly_conn_t *conn);
+int16_t quicly_get_burst_size(quicly_conn_t *conn);
 /**
  * returns if the connection is currently capped by connection-level flow control.
  */

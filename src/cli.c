@@ -401,9 +401,11 @@ static int send_pending(int fd, quicly_conn_t *conn)
     size_t num_packets, i;
     int ret;
     uint16_t burstsize;
+fprintf(stderr, "send_pending\n");
+    burstsize = quicly_get_burst_size(conn);
 
-    burstsize = quicly_get_context(conn)->max_burst;
     packets = calloc(burstsize, sizeof(quicly_datagram_t *));
+fprintf(stderr, "send_pending burst size %d\n", burstsize);
 
     if (packets == NULL)	/* not sure what to actually do here */
     	return 0;

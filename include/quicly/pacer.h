@@ -39,6 +39,8 @@ extern "C" {
 typedef struct st_quicly_pacer_t {
     int64_t lastsend_at; 
     int64_t interval;
+    uint16_t burst_size;
+    uint16_t max_burst;
 } quicly_pacer_t;
 
 #ifdef __cplusplus

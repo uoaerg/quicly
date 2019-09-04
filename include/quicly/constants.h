@@ -42,6 +42,7 @@ extern "C" {
 #define QUICLY_MAX_PACKET_SIZE 1280 /* must be >= 1200 bytes */
 #define QUICLY_DEFAULT_MAX_BURST 16
 #define QUICLY_MAX_BURST 16
+#define QUICLY_MIN_QUANTUM 1
 #define QUICLY_AEAD_TAG_SIZE 16
 
 /* coexists with picotls error codes, assuming that int is at least 32-bits */
