@@ -287,6 +287,10 @@ static int server_on_receive(quicly_stream_t *stream, size_t off, const void *sr
         goto Sent;
     if (path_is(path, "/blob1m.txt") && send_file(stream, is_http1, "assets/blob1m.txt", "image/jpeg"))
         goto Sent;
+    if (path_is(path, "/blob10m.txt") && send_file(stream, is_http1, "assets/blob1m.txt", "image/jpeg"))
+        goto Sent;
+    if (path_is(path, "/blob100m.txt") && send_file(stream, is_http1, "assets/blob1m.txt", "image/jpeg"))
+        goto Sent;
 
     if (send_sized_text(stream, path, is_http1))
         goto Sent;
@@ -311,6 +315,7 @@ static int client_on_receive(quicly_stream_t *stream, size_t off, const void *sr
         return ret;
 
     if ((input = quicly_streambuf_ingress_get(stream)).len != 0) {
+    	// I think blocking these would shut the client up
         fwrite(input.base, 1, input.len, stdout);
         fflush(stdout);
         quicly_streambuf_ingress_shift(stream, input.len);
@@ -319,6 +324,7 @@ static int client_on_receive(quicly_stream_t *stream, size_t off, const void *sr
     if (quicly_recvstate_transfer_complete(&stream->recvstate)) {
         static size_t num_resp_received;
         ++num_resp_received;
+	printf("\n transfer %zu complete, \n", num_resp_received);
 
 /* don't over flow number of requests
 	if ( ++num_resp_receied > MAX_REQUEST_PATHS) {
@@ -358,6 +364,7 @@ static void on_closed_by_peer(quicly_closed_by_peer_t *self, quicly_conn_t *conn
                               size_t reason_len)
 {
     if (QUICLY_ERROR_IS_QUIC_TRANSPORT(err)) {
+    	// this is the place to exist out
         fprintf(stderr, "transport close:code=0x%" PRIx16 ";frame=%" PRIu64 ";reason=%.*s\n", QUICLY_ERROR_GET_ERROR_CODE(err),
                 frame_type, (int)reason_len, reason);
     } else if (QUICLY_ERROR_IS_QUIC_APPLICATION(err)) {
