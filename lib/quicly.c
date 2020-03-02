@@ -4331,7 +4331,7 @@ static int handle_handshake_done_frame(quicly_conn_t *conn, struct st_quicly_han
 }
 
 static int handle_payload(quicly_conn_t *conn, size_t epoch, const uint8_t *_src, size_t _len, uint64_t *offending_frame_type,
-                          int *is_ack_only)
+                          int *is_ack_only,  uint64_t pn)
 {
     /* clang-format off */
 
@@ -4389,7 +4389,8 @@ static int handle_payload(quicly_conn_t *conn, size_t epoch, const uint8_t *_src
     /* clang-format on */
 
     struct st_quicly_handle_payload_state_t state = {_src, _src + _len, epoch};
-    size_t num_frames = 0, num_frames_ack_eliciting = 0;
+
+    size_t num_frames = 0, num_frames_ack_eliciting = 0, start_byte = 0, end_byte = 0;
     int ret;
 
     do {
@@ -4404,8 +4405,24 @@ static int handle_payload(quicly_conn_t *conn, size_t epoch, const uint8_t *_src
         }
         num_frames += 1;
         num_frames_ack_eliciting += frame_handlers[state.frame_type].ack_eliciting;
+
+	start_byte = (int64_t)state.end - (int64_t)state.src;
         if ((ret = (*frame_handlers[state.frame_type].cb)(conn, &state)) != 0)
             break;
+	end_byte = (int64_t)state.end - (int64_t)state.src;
+/* rewrite */
+    	QUICLY_PROBE(RECEIVE_EXT, conn, probe_now(), 
+		conn->egress.packet_number, 
+		start_byte - end_byte + 1,
+		state.frame_type);
+
+#if 0
+/*old */
+        LOG_CONNECTION_EVENT(conn, QUICLY_EVENT_TYPE_RECEIVE, 
+		INT_EVENT_ATTR(PACKET_NUMBER, pn), 
+		INT_EVENT_ATTR(LENGTH, start_byte - end_byte + 1), 
+		INT_EVENT_ATTR(FRAME_TYPE, state.frame_type));
+#endif //0
     } while (state.src != state.end);
 
     *is_ack_only = num_frames_ack_eliciting == 0;
@@ -4484,7 +4501,7 @@ int quicly_accept(quicly_conn_t **conn, quicly_context_t *ctx, struct sockaddr *
     /* handle the input; we ignore is_ack_only, we consult if there's any output from TLS in response to CH anyways */
     (*conn)->super.stats.num_packets.received += 1;
     (*conn)->super.stats.num_bytes.received += packet->octets.len;
-    if ((ret = handle_payload(*conn, QUICLY_EPOCH_INITIAL, payload.base, payload.len, &offending_frame_type, &is_ack_only)) != 0)
+    if ((ret = handle_payload(*conn, QUICLY_EPOCH_INITIAL, payload.base, payload.len, &offending_frame_type, &is_ack_only, pn)) != 0)
         goto Exit;
     if ((ret = record_receipt(*conn, &(*conn)->initial->super, pn, 0, QUICLY_EPOCH_INITIAL)) != 0)
         goto Exit;
@@ -4684,7 +4701,7 @@ int quicly_receive(quicly_conn_t *conn, struct sockaddr *dest_addr, struct socka
     }
 
     /* handle the payload */
-    if ((ret = handle_payload(conn, epoch, payload.base, payload.len, &offending_frame_type, &is_ack_only)) != 0)
+    if ((ret = handle_payload(conn, epoch, payload.base, payload.len, &offending_frame_type, &is_ack_only, pn)) != 0)
         goto Exit;
     if (*space != NULL && conn->super.state < QUICLY_STATE_CLOSING) {
         if ((ret = record_receipt(conn, *space, pn, is_ack_only, epoch)) != 0)

@@ -31,6 +31,9 @@ provider quicly {
     probe free(struct st_quicly_conn_t *conn, int64_t at);
     probe send(struct st_quicly_conn_t *conn, int64_t at, int state, const char *dcid);
     probe receive(struct st_quicly_conn_t *conn, int64_t at, const char *dcid, const void *bytes, size_t num_bytes);
+//new
+    probe receive_ext(struct st_quicly_conn_t *conn, int64_t at, uint64_t pn, uint64_t length, uint64_t frame_type);
+
     probe version_switch(struct st_quicly_conn_t *conn, int64_t at, uint32_t new_version);
     probe idle_timeout(struct st_quicly_conn_t *conn, int64_t at);
     probe stateless_reset_receive(struct st_quicly_conn_t *conn, int64_t at);
